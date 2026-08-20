@@ -1,10 +1,14 @@
 package com.eventpulse.api.controller;
 
 import com.eventpulse.api.dto.CreateEndpointRequest;
+import com.eventpulse.api.entity.CheckLog;
 import com.eventpulse.api.entity.MonitoredEndpoint;
+import com.eventpulse.api.repository.CheckLogRepository;
 import com.eventpulse.api.service.EndpointService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +22,7 @@ import java.util.List;
 public class EndpointController {
 
     private final EndpointService endpointService;
+    private final CheckLogRepository checkLogRepository;
 
     @GetMapping
     public ResponseEntity<List<MonitoredEndpoint>> getAllEndpoints() {
@@ -34,5 +39,15 @@ public class EndpointController {
     public ResponseEntity<Void> deleteEndpoint(@PathVariable Long id) {
         endpointService.deleteEndpoint(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/logs")
+    public ResponseEntity<List<CheckLog>> getEndpointLogs(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "30") int limit) {
+
+        Pageable pageable = PageRequest.of(0, limit);
+        List<CheckLog> logs = checkLogRepository.findByEndpointIdOrderByCheckedAtDesc(id, pageable);
+        return ResponseEntity.ok(logs);
     }
 }

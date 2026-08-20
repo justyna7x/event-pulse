@@ -35,3 +35,17 @@ export const createEndpoint = async (data: CreateEndpointPayload): Promise<Monit
 export const deleteEndpoint = async (id: number): Promise<void> => {
     await axios.delete(`${API_BASE_URL}/${id}`);
 };
+
+export type CheckLog = {
+    id: number;
+    statusCode: number;
+    responseTimeMs: number;
+    success: boolean;
+    errorMessage?: string;
+    checkedAt: string;
+};
+
+export const fetchEndpointLogs = async (endpointId: number, limit: number = 30): Promise<CheckLog[]> => {
+    const response = await axios.get(`${API_BASE_URL}/${endpointId}/logs?limit=${limit}`);
+    return response.data;
+};
