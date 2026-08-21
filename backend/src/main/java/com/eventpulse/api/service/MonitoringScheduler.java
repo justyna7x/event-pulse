@@ -6,6 +6,8 @@ import com.eventpulse.api.repository.CheckLogRepository;
 import com.eventpulse.api.repository.MonitoredEndpointRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +27,18 @@ public class MonitoringScheduler {
 
     private final MonitoredEndpointRepository endpointRepository;
     private final CheckLogRepository checkLogRepository;
+
+    @Autowired
+    private CacheManager cacheManager;
+
+    private void updateAndEvictCache(MonitoredEndpoint endpoint) {
+        endpointRepository.save(endpoint);
+
+        // Evict cached endpoints list in Redis so polling gets updated status
+        if (cacheManager.getCache("endpoints") != null) {
+            cacheManager.getCache("endpoints").clear();
+        }
+    }
 
     // Standard JDK 11+ HttpClient for async HTTP requests
     private final HttpClient httpClient = HttpClient.newBuilder()
