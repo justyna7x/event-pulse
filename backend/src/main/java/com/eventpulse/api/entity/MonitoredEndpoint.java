@@ -45,6 +45,8 @@ public class MonitoredEndpoint {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+    @Column(name = "webhook_url")
+    private String webhookUrl;
 
     @PrePersist
     protected void onCreate() {

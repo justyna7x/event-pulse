@@ -27,6 +27,7 @@ public class MonitoringScheduler {
 
     private final MonitoredEndpointRepository endpointRepository;
     private final CheckLogRepository checkLogRepository;
+    private final WebhookDispatcherService webhookDispatcherService;
 
     @Autowired
     private CacheManager cacheManager;
@@ -54,12 +55,14 @@ public class MonitoringScheduler {
             CompletableFuture.runAsync(() -> pingEndpoint(endpoint));
         }
     }
-
     private void pingEndpoint(MonitoredEndpoint endpoint) {
         long startTime = System.currentTimeMillis();
         boolean isSuccess;
         int statusCode;
         String errorMessage = null;
+
+        // Capture the status before this check to detect state transitions
+        String previousStatus = endpoint.getLastStatus();
 
         try {
             HttpRequest request = HttpRequest.newBuilder()
@@ -73,13 +76,27 @@ public class MonitoringScheduler {
             long duration = System.currentTimeMillis() - startTime;
 
             isSuccess = (statusCode == endpoint.getExpectedStatusCode());
+            String currentStatus = isSuccess ? "UP" : "DOWN";
 
-            // Update endpoint status
+            // 1. Update endpoint state
             endpoint.setLastCheckedAt(LocalDateTime.now());
-            endpoint.setLastStatus(isSuccess ? "UP" : "DOWN");
+            endpoint.setLastStatus(currentStatus);
             endpointRepository.save(endpoint);
 
-            // Log entry
+            // 2. Trigger webhook alert if status transitioned (e.g. UP -> DOWN or DOWN -> UP)
+            if (previousStatus != null && !previousStatus.equals(currentStatus)) {
+                String eventType = "UP".equals(currentStatus) ? "ENDPOINT_RECOVERED" : "ENDPOINT_DOWN";
+                webhookDispatcherService.dispatchAlert(
+                        endpoint.getWebhookUrl(),
+                        eventType,
+                        endpoint.getName(),
+                        endpoint.getUrl(),
+                        statusCode,
+                        currentStatus
+                );
+            }
+
+            // 3. Log historical check entry
             CheckLog logEntry = CheckLog.builder()
                     .endpoint(endpoint)
                     .statusCode(statusCode)
@@ -94,10 +111,26 @@ public class MonitoringScheduler {
             long duration = System.currentTimeMillis() - startTime;
             log.error("Failed to ping endpoint {}: {}", endpoint.getUrl(), e.getMessage());
 
+            String currentStatus = "DOWN";
+
+            // 1. Update endpoint state
             endpoint.setLastCheckedAt(LocalDateTime.now());
-            endpoint.setLastStatus("DOWN");
+            endpoint.setLastStatus(currentStatus);
             endpointRepository.save(endpoint);
 
+            // 2. Trigger webhook alert if status transitioned to DOWN
+            if (previousStatus != null && !"DOWN".equals(previousStatus)) {
+                webhookDispatcherService.dispatchAlert(
+                        endpoint.getWebhookUrl(),
+                        "ENDPOINT_DOWN",
+                        endpoint.getName(),
+                        endpoint.getUrl(),
+                        0,
+                        currentStatus
+                );
+            }
+
+            // 3. Log historical check entry
             CheckLog logEntry = CheckLog.builder()
                     .endpoint(endpoint)
                     .statusCode(0)
@@ -107,6 +140,11 @@ public class MonitoringScheduler {
                     .build();
 
             checkLogRepository.save(logEntry);
+        } finally {
+            // Evict stale endpoints list in Redis so polling picks up the new status
+            if (cacheManager.getCache("endpoints") != null) {
+                cacheManager.getCache("endpoints").clear();
+            }
         }
     }
 }
