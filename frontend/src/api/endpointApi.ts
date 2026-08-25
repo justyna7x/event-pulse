@@ -6,6 +6,7 @@ export interface MonitoredEndpoint {
     id: number;
     name: string;
     url: string;
+    webhookUrl?: string;
     httpMethod: string;
     expectedStatusCode: number;
     checkIntervalSeconds: number;
@@ -17,6 +18,7 @@ export interface MonitoredEndpoint {
 export interface CreateEndpointPayload {
     name: string;
     url: string;
+    webhookUrl?: string;
     httpMethod?: string;
     expectedStatusCode?: number;
     checkIntervalSeconds?: number;
@@ -49,3 +51,4 @@ export const fetchEndpointLogs = async (endpointId: number, limit: number = 30):
     const response = await axios.get(`${API_BASE_URL}/${endpointId}/logs?limit=${limit}`);
     return response.data;
 };
+

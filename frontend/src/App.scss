@@ -94,3 +94,14 @@ header {
   font-family: monospace;
   font-size: 0.8rem;
 }
+
+.badge {
+  &.webhook-active {
+    background: #e0e7ff;
+    color: #3730a3;
+  }
+  &.webhook-none {
+    background: #f3f4f6;
+    color: #9ca3af;
+  }
+}

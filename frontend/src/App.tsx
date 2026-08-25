@@ -11,6 +11,7 @@ export const App: React.FC = () => {
   const [formData, setFormData] = useState<CreateEndpointPayload>({
     name: '',
     url: '',
+    webhookUrl: '',
     httpMethod: 'GET',
     expectedStatusCode: 200,
     checkIntervalSeconds: 60,
@@ -51,6 +52,7 @@ export const App: React.FC = () => {
       setFormData({
         name: '',
         url: '',
+        webhookUrl: '',
         httpMethod: 'GET',
         expectedStatusCode: 200,
         checkIntervalSeconds: 60,
@@ -102,6 +104,16 @@ export const App: React.FC = () => {
                   value={formData.url}
                   onChange={handleInputChange}
                   required
+              />
+            </div>
+            <div>
+              <label>Webhook Alert URL (Optional)</label>
+              <input
+                  type="url"
+                  name="webhookUrl"
+                  placeholder="https://discord.com/api/webhooks/..."
+                  value={formData.webhookUrl}
+                  onChange={handleInputChange}
               />
             </div>
 
@@ -158,6 +170,7 @@ export const App: React.FC = () => {
                   <th>Method</th>
                   <th>Last Checked</th>
                   <th>Action</th>
+                  <th>Webhook Alert</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -181,6 +194,13 @@ export const App: React.FC = () => {
                             <button onClick={() => handleDelete(ep.id)} className="btn-danger">
                               Delete
                             </button>
+                          </td>
+                          <td>
+                            {ep.webhookUrl ? (
+                                <span className="badge webhook-active">Active</span>
+                            ) : (
+                                <span className="badge webhook-none">None</span>
+                            )}
                           </td>
                         </tr>
                     ))
