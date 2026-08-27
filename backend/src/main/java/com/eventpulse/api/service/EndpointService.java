@@ -1,7 +1,9 @@
 package com.eventpulse.api.service;
 
+import com.eventpulse.api.dto.CreateEndpointRequest;
 import com.eventpulse.api.entity.MonitoredEndpoint;
 import com.eventpulse.api.repository.MonitoredEndpointRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -23,7 +25,7 @@ public class EndpointService {
 
     // Evict cache whenever a new endpoint is created or deleted
     @CacheEvict(value = "endpoints", allEntries = true)
-    public MonitoredEndpoint createEndpoint(MonitoredEndpoint endpoint) {
+    public MonitoredEndpoint createEndpoint(@Valid CreateEndpointRequest endpoint) {
         return endpointRepository.save(endpoint);
     }
 

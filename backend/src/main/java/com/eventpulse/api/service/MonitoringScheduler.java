@@ -147,4 +147,8 @@ public class MonitoringScheduler {
             }
         }
     }
+
+    public void triggerManualPing(MonitoredEndpoint endpoint) {
+        CompletableFuture.runAsync(() -> pingEndpoint(endpoint));
+    }
 }

@@ -52,3 +52,7 @@ export const fetchEndpointLogs = async (endpointId: number, limit: number = 30):
     return response.data;
 };
 
+export const triggerPingNow = async (id: number): Promise<void> => {
+    await axios.post(`${API_BASE_URL}/${id}/ping`);
+};
+

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchEndpoints, createEndpoint, deleteEndpoint } from './api/endpointApi';
+import {fetchEndpoints, createEndpoint, deleteEndpoint, triggerPingNow} from './api/endpointApi';
 import type { MonitoredEndpoint, CreateEndpointPayload } from './api/endpointApi';
 
 export const App: React.FC = () => {
@@ -193,6 +193,16 @@ export const App: React.FC = () => {
                           <td>
                             <button onClick={() => handleDelete(ep.id)} className="btn-danger">
                               Delete
+                            </button>
+                            <button
+                                onClick={async () => {
+                                  await triggerPingNow(ep.id);
+                                  await loadEndpoints();
+                                }}
+                                className="btn-secondary"
+                                style={{ marginRight: '0.5rem' }}
+                            >
+                              ⚡ Ping
                             </button>
                           </td>
                           <td>

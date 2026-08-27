@@ -4,7 +4,9 @@ import com.eventpulse.api.dto.CreateEndpointRequest;
 import com.eventpulse.api.entity.CheckLog;
 import com.eventpulse.api.entity.MonitoredEndpoint;
 import com.eventpulse.api.repository.CheckLogRepository;
+import com.eventpulse.api.repository.MonitoredEndpointRepository;
 import com.eventpulse.api.service.EndpointService;
+import com.eventpulse.api.service.MonitoringScheduler;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +25,8 @@ public class EndpointController {
 
     private final EndpointService endpointService;
     private final CheckLogRepository checkLogRepository;
+    private final MonitoredEndpointRepository endpointRepository;
+    private final MonitoringScheduler monitoringScheduler;
 
     @GetMapping
     public ResponseEntity<List<MonitoredEndpoint>> getAllEndpoints() {
@@ -49,5 +53,14 @@ public class EndpointController {
         Pageable pageable = PageRequest.of(0, limit);
         List<CheckLog> logs = checkLogRepository.findByEndpointIdOrderByCheckedAtDesc(id, pageable);
         return ResponseEntity.ok(logs);
+    }
+    @PostMapping("/{id}/ping")
+    public ResponseEntity<Void> pingNow(@PathVariable Long id) {
+        return endpointRepository.findById(id)
+                .map(endpoint -> {
+                    monitoringScheduler.triggerManualPing(endpoint);
+                    return ResponseEntity.accepted().<Void>build();
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 }
