@@ -7,6 +7,12 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Calculate dashboard aggregate metrics
+  const totalEndpoints = endpoints.length;
+  const upCount = endpoints.filter((e) => e.lastStatus === 'UP').length;
+  const downCount = endpoints.filter((e) => e.lastStatus === 'DOWN').length;
+  const overallHealth = totalEndpoints > 0 ? Math.round((upCount / totalEndpoints) * 100) : 100;
+
   // Form state
   const [formData, setFormData] = useState<CreateEndpointPayload>({
     name: '',
@@ -78,6 +84,33 @@ export const App: React.FC = () => {
           <h1>EventPulse Dashboard</h1>
           <p>Real-Time API & Webhook Monitoring</p>
         </header>
+
+        {/* Summary Metrics Banner */}
+        <section className="stats-grid">
+          <div className="stat-card">
+            <span className="stat-label">Total Endpoints</span>
+            <span className="stat-value">{totalEndpoints}</span>
+          </div>
+
+          <div className="stat-card">
+            <span className="stat-label">System Health</span>
+            <span className={`stat-value ${overallHealth === 100 ? 'healthy' : 'degraded'}`}>
+      {overallHealth}%
+    </span>
+          </div>
+
+          <div className="stat-card">
+            <span className="stat-label">Services UP</span>
+            <span className="stat-value up-text">{upCount}</span>
+          </div>
+
+          <div className="stat-card">
+            <span className="stat-label">Services DOWN</span>
+            <span className={`stat-value ${downCount > 0 ? 'down-text' : ''}`}>
+      {downCount}
+    </span>
+          </div>
+        </section>
 
         {/* Add New Endpoint Form */}
         <section className="card">
