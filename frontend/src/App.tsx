@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import {fetchEndpoints, createEndpoint, deleteEndpoint, triggerPingNow} from './api/endpointApi';
+import { fetchEndpoints, createEndpoint, deleteEndpoint, triggerPingNow } from './api/endpointApi';
 import type { MonitoredEndpoint, CreateEndpointPayload } from './api/endpointApi';
+import { ResponseTimeChart } from './components/ResponseTimeChart'; // Adjust path if needed
 
 export const App: React.FC = () => {
   const [endpoints, setEndpoints] = useState<MonitoredEndpoint[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Calculate dashboard aggregate metrics
+  // Inspection & Manual Ping state
+  const [selectedEndpoint, setSelectedEndpoint] = useState<MonitoredEndpoint | null>(null);
+  const [pingingId, setPingingId] = useState<number | null>(null);
+
+  // Aggregate metrics
   const totalEndpoints = endpoints.length;
   const upCount = endpoints.filter((e) => e.lastStatus === 'UP').length;
   const downCount = endpoints.filter((e) => e.lastStatus === 'DOWN').length;
@@ -38,7 +43,6 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     loadEndpoints();
-    // Poll endpoints every 10 seconds to update 'lastStatus' in real-time
     const interval = setInterval(loadEndpoints, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -72,9 +76,24 @@ export const App: React.FC = () => {
   const handleDelete = async (id: number) => {
     try {
       await deleteEndpoint(id);
+      if (selectedEndpoint?.id === id) {
+        setSelectedEndpoint(null);
+      }
       await loadEndpoints();
     } catch (err: any) {
       alert('Failed to delete endpoint.');
+    }
+  };
+
+  const handleManualPing = async (id: number) => {
+    try {
+      setPingingId(id);
+      await triggerPingNow(id);
+      await loadEndpoints();
+    } catch (err: any) {
+      alert('Failed to trigger manual ping.');
+    } finally {
+      setPingingId(null);
     }
   };
 
@@ -95,8 +114,8 @@ export const App: React.FC = () => {
           <div className="stat-card">
             <span className="stat-label">System Health</span>
             <span className={`stat-value ${overallHealth === 100 ? 'healthy' : 'degraded'}`}>
-      {overallHealth}%
-    </span>
+            {overallHealth}%
+          </span>
           </div>
 
           <div className="stat-card">
@@ -107,8 +126,8 @@ export const App: React.FC = () => {
           <div className="stat-card">
             <span className="stat-label">Services DOWN</span>
             <span className={`stat-value ${downCount > 0 ? 'down-text' : ''}`}>
-      {downCount}
-    </span>
+            {downCount}
+          </span>
           </div>
         </section>
 
@@ -139,6 +158,7 @@ export const App: React.FC = () => {
                   required
               />
             </div>
+
             <div>
               <label>Webhook Alert URL (Optional)</label>
               <input
@@ -187,7 +207,7 @@ export const App: React.FC = () => {
           </form>
         </section>
 
-        {/* Endpoint List Table */}
+        {/* Active Endpoints Table */}
         <section className="card">
           <h2>Active Endpoints ({endpoints.length})</h2>
           {error && <div className="alert error">{error}</div>}
@@ -202,18 +222,23 @@ export const App: React.FC = () => {
                   <th>URL</th>
                   <th>Method</th>
                   <th>Last Checked</th>
-                  <th>Action</th>
                   <th>Webhook Alert</th>
+                  <th>Action</th>
                 </tr>
                 </thead>
                 <tbody>
                 {endpoints.length === 0 ? (
                     <tr>
-                      <td colSpan={6}>No endpoints configured yet.</td>
+                      <td colSpan={7}>No endpoints configured yet.</td>
                     </tr>
                 ) : (
                     endpoints.map((ep) => (
-                        <tr key={ep.id}>
+                        <tr
+                            key={ep.id}
+                            className={`table-row ${selectedEndpoint?.id === ep.id ? 'active-row' : ''}`}
+                            onClick={() => setSelectedEndpoint(selectedEndpoint?.id === ep.id ? null : ep)}
+                            style={{ cursor: 'pointer' }}
+                        >
                           <td>
                       <span className={`badge ${ep.lastStatus ? ep.lastStatus.toLowerCase() : 'pending'}`}>
                         {ep.lastStatus || 'PENDING'}
@@ -224,26 +249,24 @@ export const App: React.FC = () => {
                           <td><span className="method-tag">{ep.httpMethod}</span></td>
                           <td>{ep.lastCheckedAt ? new Date(ep.lastCheckedAt).toLocaleTimeString() : 'Never'}</td>
                           <td>
-                            <button onClick={() => handleDelete(ep.id)} className="btn-danger">
-                              Delete
-                            </button>
-                            <button
-                                onClick={async () => {
-                                  await triggerPingNow(ep.id);
-                                  await loadEndpoints();
-                                }}
-                                className="btn-secondary"
-                                style={{ marginRight: '0.5rem' }}
-                            >
-                              ⚡ Ping
-                            </button>
-                          </td>
-                          <td>
                             {ep.webhookUrl ? (
                                 <span className="badge webhook-active">Active</span>
                             ) : (
                                 <span className="badge webhook-none">None</span>
                             )}
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <button
+                                onClick={() => handleManualPing(ep.id)}
+                                disabled={pingingId === ep.id}
+                                className="btn-secondary"
+                                style={{ marginRight: '0.5rem' }}
+                            >
+                              {pingingId === ep.id ? 'Pinging...' : '⚡ Ping Now'}
+                            </button>
+                            <button onClick={() => handleDelete(ep.id)} className="btn-danger">
+                              Delete
+                            </button>
                           </td>
                         </tr>
                     ))
@@ -252,6 +275,43 @@ export const App: React.FC = () => {
               </table>
           )}
         </section>
+
+        {/* Detailed Metrics Panel */}
+        {selectedEndpoint && (
+            <section className="card detail-panel">
+              <div className="detail-header">
+                <div>
+                  <h3>Inspecting: {selectedEndpoint.name}</h3>
+                  <p className="subtitle"><code>{selectedEndpoint.url}</code></p>
+                </div>
+                <button className="btn-close" onClick={() => setSelectedEndpoint(null)}>✕ Close</button>
+              </div>
+
+              <div className="detail-grid">
+                <div className="detail-item">
+                  <span className="label">HTTP Method</span>
+                  <span className="value">{selectedEndpoint.httpMethod}</span>
+                </div>
+                <div className="detail-item">
+                  <span className="label">Expected Status</span>
+                  <span className="value">{selectedEndpoint.expectedStatusCode}</span>
+                </div>
+                <div className="detail-item">
+                  <span className="label">Check Interval</span>
+                  <span className="value">{selectedEndpoint.checkIntervalSeconds}s</span>
+                </div>
+                <div className="detail-item">
+                  <span className="label">Webhook Target</span>
+                  <span className="value">{selectedEndpoint.webhookUrl || 'Not Configured'}</span>
+                </div>
+              </div>
+
+              <ResponseTimeChart
+                  endpointId={selectedEndpoint.id}
+                  endpointName={selectedEndpoint.name}
+              />
+            </section>
+        )}
       </div>
   );
 };
