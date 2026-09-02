@@ -17,16 +17,22 @@ public class EndpointService {
 
     private final MonitoredEndpointRepository endpointRepository;
 
-    // Cache key: 'endpoints::all' - automatically returned from Redis if present
     @Cacheable(value = "endpoints", key = "'all'")
     public List<MonitoredEndpoint> getAllEndpoints() {
         return endpointRepository.findAll();
     }
 
-    // Evict cache whenever a new endpoint is created or deleted
     @CacheEvict(value = "endpoints", allEntries = true)
-    public MonitoredEndpoint createEndpoint(@Valid CreateEndpointRequest endpoint) {
-        return endpointRepository.save(endpoint);
+    public MonitoredEndpoint createEndpoint(@Valid CreateEndpointRequest request) {
+        // Access record components directly without 'get' prefix
+        MonitoredEndpoint entity = new MonitoredEndpoint();
+        entity.setName(request.name());
+        entity.setUrl(request.url());
+        entity.setHttpMethod(request.httpMethod() != null ? request.httpMethod() : "GET");
+        entity.setExpectedStatusCode(request.expectedStatusCode() != null ? request.expectedStatusCode() : 200);
+        entity.setCheckIntervalSeconds(request.checkIntervalSeconds());
+
+        return endpointRepository.save(entity);
     }
 
     @CacheEvict(value = "endpoints", allEntries = true)
@@ -34,7 +40,6 @@ public class EndpointService {
         endpointRepository.deleteById(id);
     }
 
-    // Evict endpoint cache when health status is updated by scheduler
     @CacheEvict(value = "endpoints", allEntries = true)
     public void updateEndpointStatus(MonitoredEndpoint endpoint) {
         endpointRepository.save(endpoint);
