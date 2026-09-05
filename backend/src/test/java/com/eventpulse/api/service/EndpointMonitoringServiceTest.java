@@ -52,15 +52,32 @@ class EndpointServiceTest {
     }
 
     @Test
-    @DisplayName("deleteEndpoint triggers repository deletion by ID")
+    @DisplayName("deleteEndpoint triggers repository deletion when ID exists")
     void deleteEndpoint_Success() {
         // Given
         Long endpointId = 5L;
+        when(endpointRepository.existsById(endpointId)).thenReturn(true);
 
         // When
         endpointService.deleteEndpoint(endpointId);
 
         // Then
+        verify(endpointRepository, times(1)).existsById(endpointId);
         verify(endpointRepository, times(1)).deleteById(endpointId);
+    }
+
+    @Test
+    @DisplayName("deleteEndpoint throws exception when ID does not exist")
+    void deleteEndpoint_NotFound_ThrowsException() {
+        // Given
+        Long nonExistentId = 99L;
+        when(endpointRepository.existsById(nonExistentId)).thenReturn(false);
+
+        // When / Then
+        assertThrows(IllegalArgumentException.class, () ->
+                endpointService.deleteEndpoint(nonExistentId)
+        );
+
+        verify(endpointRepository, never()).deleteById(anyLong());
     }
 }

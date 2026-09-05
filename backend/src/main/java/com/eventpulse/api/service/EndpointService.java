@@ -37,6 +37,9 @@ public class EndpointService {
 
     @CacheEvict(value = "endpoints", allEntries = true)
     public void deleteEndpoint(Long id) {
+        if (!endpointRepository.existsById(id)) {
+            throw new IllegalArgumentException("Endpoint with ID " + id + " does not exist");
+        }
         endpointRepository.deleteById(id);
     }
 
